@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "CctvRoom": {
+      "title": "CctvRoom",
+      "description": "CCTV pairing room keyed by pairing code, using device IDs for no-login pairing.",
+      "type": "object",
+      "properties": {
+        "ownerDeviceId": { "type": "string", "description": "Persistent local Device ID of the Camera host" },
+        "viewerDeviceIds": { "type": "array", "description": "Paired Monitor Device IDs (1 to 10)" },
+        "cameraName": { "type": "string", "description": "Display label for the CCTV camera" },
+        "status": { "type": "string", "enum": ["WAITING", "STREAMING", "PAUSED_MOTION", "OFFLINE"] },
+        "cameraFacing": { "type": "string", "enum": ["BACK", "FRONT"] },
+        "flashEnabled": { "type": "boolean" },
+        "resolution": { "type": "string", "enum": ["480p", "720p"] },
+        "targetFps": { "type": "integer" },
+        "motionDetectionEnabled": { "type": "boolean" },
+        "motionDetected": { "type": "boolean" },
+        "blackScreenEnabled": { "type": "boolean" },
+        "batteryPercent": { "type": "integer" },
+        "batteryTempC": { "type": "number" },
+        "charging": { "type": "boolean" },
+        "viewerRequestSeq": { "type": "integer" },
+        "offerSeq": { "type": "integer" },
+        "answerSeq": { "type": "integer" },
+        "offerSdp": { "type": "string" },
+        "answerSdp": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "ownerDeviceId",
+        "viewerDeviceIds",
+        "cameraName",
+        "status",
+        "cameraFacing",
+        "flashEnabled",
+        "resolution",
+        "targetFps",
+        "motionDetectionEnabled",
+        "motionDetected",
+        "blackScreenEnabled",
+        "batteryPercent",
+        "batteryTempC",
+        "charging",
+        "viewerRequestSeq",
+        "offerSeq",
+        "answerSeq",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "IceCandidateDoc": {
+      "title": "IceCandidateDoc",
+      "description": "WebRTC ICE candidate exchanged via Firestore signaling.",
+      "type": "object",
+      "properties": {
+        "ownerDeviceId": { "type": "string" },
+        "senderDeviceId": { "type": "string" },
+        "sdpMid": { "type": "string" },
+        "sdpMLineIndex": { "type": "integer" },
+        "candidate": { "type": "string" },
+        "sessionSeq": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerDeviceId",
+        "senderDeviceId",
+        "sdpMid",
+        "sdpMLineIndex",
+        "candidate",
+        "sessionSeq",
+        "createdAt"
+      ]
+    },
+    "MotionEvent": {
+      "title": "MotionEvent",
+      "description": "Motion detection alert triggered by the Camera device.",
+      "type": "object",
+      "properties": {
+        "ownerDeviceId": { "type": "string" },
+        "intensity": { "type": "number" },
+        "batteryPercent": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerDeviceId", "intensity", "batteryPercent", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/CctvRoom" },
+      "description": "CCTV rooms keyed by pairing code."
+    },
+    "/rooms/{roomId}/callerCandidates/{candidateId}": {
+      "schema": { "$ref": "#/entities/IceCandidateDoc" },
+      "description": "ICE candidates published by the Camera (offerer)."
+    },
+    "/rooms/{roomId}/calleeCandidates/{candidateId}": {
+      "schema": { "$ref": "#/entities/IceCandidateDoc" },
+      "description": "ICE candidates published by the Monitor (answerer)."
+    },
+    "/rooms/{roomId}/motionEvents/{eventId}": {
+      "schema": { "$ref": "#/entities/MotionEvent" },
+      "description": "Motion detection events logged by the Camera."
+    }
+  }
+}

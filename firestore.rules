@@ -1,0 +1,178 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidDeviceId(deviceId) {
+      return deviceId is string && deviceId.size() >= 12 && deviceId.size() <= 64 && deviceId.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidRoomCode(roomId) {
+      return roomId is string && roomId.size() >= 6 && roomId.size() <= 32 && roomId.matches('^[A-Z0-9_\\-]+$');
+    }
+
+    function isValidCctvRoom(data) {
+      return isValidDeviceId(data.ownerDeviceId) &&
+             data.viewerDeviceIds is list && data.viewerDeviceIds.size() >= 1 && data.viewerDeviceIds.size() <= 10 &&
+             isValidDeviceId(data.viewerDeviceIds[0]) &&
+             data.cameraName is string && data.cameraName.size() >= 1 && data.cameraName.size() <= 50 &&
+             data.status in ['WAITING', 'STREAMING', 'PAUSED_MOTION', 'OFFLINE'] &&
+             data.cameraFacing in ['BACK', 'FRONT'] &&
+             data.flashEnabled is bool &&
+             data.resolution in ['480p', '720p'] &&
+             data.targetFps is int && data.targetFps >= 10 && data.targetFps <= 30 &&
+             data.motionDetectionEnabled is bool &&
+             data.motionDetected is bool &&
+             data.blackScreenEnabled is bool &&
+             data.batteryPercent is int && data.batteryPercent >= 0 && data.batteryPercent <= 100 &&
+             data.batteryTempC is number && data.batteryTempC >= -20 && data.batteryTempC <= 100 &&
+             data.charging is bool &&
+             data.viewerRequestSeq is int && data.viewerRequestSeq >= 0 &&
+             data.offerSeq is int && data.offerSeq >= 0 &&
+             data.answerSeq is int && data.answerSeq >= 0 &&
+             (!('offerSdp' in data) || (data.offerSdp is string && data.offerSdp.size() <= 40000)) &&
+             (!('answerSdp' in data) || (data.answerSdp is string && data.answerSdp.size() <= 40000)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidIceCandidate(data) {
+      return isValidDeviceId(data.ownerDeviceId) &&
+             isValidDeviceId(data.senderDeviceId) &&
+             data.sdpMid is string && data.sdpMid.size() <= 64 &&
+             data.sdpMLineIndex is int && data.sdpMLineIndex >= 0 && data.sdpMLineIndex <= 20 &&
+             data.candidate is string && data.candidate.size() >= 1 && data.candidate.size() <= 2048 &&
+             data.sessionSeq is int && data.sessionSeq >= 0 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidMotionEvent(data) {
+      return isValidDeviceId(data.ownerDeviceId) &&
+             data.intensity is number && data.intensity >= 0 && data.intensity <= 100 &&
+             data.batteryPercent is int && data.batteryPercent >= 0 && data.batteryPercent <= 100 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    match /rooms/{roomId} {
+      // Capability-based access: must know the exact pairing code (roomId); listing/scraping rooms is strictly blocked
+      allow get: if isValidRoomCode(roomId);
+      allow list: if false;
+
+      allow create: if isValidRoomCode(roomId) &&
+                       incoming().ownerDeviceId in incoming().viewerDeviceIds &&
+                       incoming().keys().hasAll([
+                         'ownerDeviceId', 'viewerDeviceIds', 'cameraName', 'status', 'cameraFacing',
+                         'flashEnabled', 'resolution', 'targetFps', 'motionDetectionEnabled',
+                         'motionDetected', 'blackScreenEnabled', 'batteryPercent', 'batteryTempC',
+                         'charging', 'viewerRequestSeq', 'offerSeq', 'answerSeq',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'ownerDeviceId', 'viewerDeviceIds', 'cameraName', 'status', 'cameraFacing',
+                         'flashEnabled', 'resolution', 'targetFps', 'motionDetectionEnabled',
+                         'motionDetected', 'blackScreenEnabled', 'batteryPercent', 'batteryTempC',
+                         'charging', 'viewerRequestSeq', 'offerSeq', 'answerSeq',
+                         'offerSdp', 'answerSdp', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidCctvRoom(incoming());
+
+      allow update: if isValidRoomCode(roomId) &&
+                       isValidCctvRoom(incoming()) &&
+                       incoming().ownerDeviceId == existing().ownerDeviceId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Action 1: Camera Host updates telemetry, WebRTC offer, settings, or resumes room
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'cameraName', 'status', 'cameraFacing', 'flashEnabled', 'resolution',
+                           'targetFps', 'motionDetectionEnabled', 'motionDetected', 'blackScreenEnabled',
+                           'batteryPercent', 'batteryTempC', 'charging', 'viewerRequestSeq',
+                           'offerSeq', 'answerSeq', 'offerSdp', 'answerSdp', 'viewerDeviceIds', 'updatedAt'
+                         ]) ||
+                         // Action 2: Monitor joins via pairing code (adds own deviceId only)
+                         (
+                           existing().status != 'OFFLINE' &&
+                           incoming().viewerDeviceIds.hasAll(existing().viewerDeviceIds) &&
+                           incoming().viewerDeviceIds.size() <= existing().viewerDeviceIds.size() + 1 &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'viewerDeviceIds', 'viewerRequestSeq', 'updatedAt'
+                           ])
+                         ) ||
+                         // Action 3: Monitor updates remote camera controls or submits WebRTC answer
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'cameraFacing', 'flashEnabled', 'resolution', 'targetFps',
+                           'motionDetectionEnabled', 'blackScreenEnabled', 'viewerRequestSeq',
+                           'answerSeq', 'answerSdp', 'updatedAt'
+                         ])
+                       );
+
+      allow delete: if false;
+
+      match /callerCandidates/{candidateId} {
+        allow get, list: if isValidRoomCode(roomId);
+        allow create: if isValidRoomCode(roomId) &&
+                         isValidId(candidateId) &&
+                         isValidIceCandidate(incoming()) &&
+                         incoming().keys().hasAll([
+                           'ownerDeviceId', 'senderDeviceId', 'sdpMid',
+                           'sdpMLineIndex', 'candidate', 'sessionSeq', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'ownerDeviceId', 'senderDeviceId', 'sdpMid',
+                           'sdpMLineIndex', 'candidate', 'sessionSeq', 'createdAt'
+                         ]) &&
+                         exists(/databases/$(database)/documents/rooms/$(roomId)) &&
+                         get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerDeviceId == incoming().ownerDeviceId;
+        allow update, delete: if false;
+      }
+
+      match /calleeCandidates/{candidateId} {
+        allow get, list: if isValidRoomCode(roomId);
+        allow create: if isValidRoomCode(roomId) &&
+                         isValidId(candidateId) &&
+                         isValidIceCandidate(incoming()) &&
+                         incoming().keys().hasAll([
+                           'ownerDeviceId', 'senderDeviceId', 'sdpMid',
+                           'sdpMLineIndex', 'candidate', 'sessionSeq', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'ownerDeviceId', 'senderDeviceId', 'sdpMid',
+                           'sdpMLineIndex', 'candidate', 'sessionSeq', 'createdAt'
+                         ]) &&
+                         exists(/databases/$(database)/documents/rooms/$(roomId)) &&
+                         incoming().senderDeviceId in get(/databases/$(database)/documents/rooms/$(roomId)).data.viewerDeviceIds;
+        allow update, delete: if false;
+      }
+
+      match /motionEvents/{eventId} {
+        allow get, list: if isValidRoomCode(roomId);
+        allow create: if isValidRoomCode(roomId) &&
+                         isValidId(eventId) &&
+                         isValidMotionEvent(incoming()) &&
+                         incoming().keys().hasAll([
+                           'ownerDeviceId', 'intensity', 'batteryPercent', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'ownerDeviceId', 'intensity', 'batteryPercent', 'createdAt'
+                         ]) &&
+                         exists(/databases/$(database)/documents/rooms/$(roomId)) &&
+                         get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerDeviceId == incoming().ownerDeviceId;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

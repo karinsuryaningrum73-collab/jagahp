@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">JagaCam</string>
+    <string name="disguise_app_name">Kalkulator</string>
+    <string name="tagline">CCTV Hemat Daya Ekstrem</string>
+    <string name="choose_mode_title">Pilih Mode Perangkat</string>
+    <string name="choose_mode_subtitle">Sentuh tombol besar di bawah sesuai peran HP ini</string>
+    <string name="mode_camera_title">Mode Kamera</string>
+    <string name="mode_camera_badge">HP LAMA / CADANGAN</string>
+    <string name="mode_camera_desc">Pancarkan video &amp; audio real-time dengan Layar Hitam OLED, 15 FPS, dan Deteksi Gerakan.</string>
+    <string name="mode_monitor_title">Mode Pemantau</string>
+    <string name="mode_monitor_badge">HP UTAMA</string>
+    <string name="mode_monitor_desc">Pantau siaran langsung, kendalikan kamera depan/belakang, nyalakan senter, dan cek baterai kamera.</string>
+    <string name="recent_rooms_title">Riwayat Kamera Terhubung</string>
+    <string name="permission_required_title">Izin Kamera &amp; Mikrofon Diperlukan</string>
+    <string name="permission_camera_desc">JagaCam membutuhkan akses kamera dan mikrofon untuk menyiarkan CCTV secara real-time.</string>
+    <string name="permission_scanner_desc">JagaCam membutuhkan akses kamera untuk memindai QR Code dari HP Kamera.</string>
+    <string name="grant_permission_button">Berikan Izin</string>
+    <string name="pairing_code_label">Kode Perangkat / Pairing</string>
+    <string name="black_screen_button">Mode Layar Hitam (Hemat Daya)</string>
+    <string name="black_screen_unlock_hint">Tekan &amp; tahan 1,5 detik di mana saja untuk membuka layar</string>
+    <string name="low_battery_warning">Baterai HP Kamera di bawah 15%%! Segera sambungkan pengisi daya.</string>
+    <string name="stealth_settings_title">Sembunyikan &amp; Kunci Aplikasi</string>
+    <string name="stealth_lock_now">Kunci Sekarang</string>
+</resources>

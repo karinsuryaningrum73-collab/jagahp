@@ -1,0 +1,6 @@
+{
+  "name": "JagaCam",
+  "description": "Ubah HP lama menjadi kamera CCTV hemat daya ekstrem dengan pantauan real-time, deteksi gerakan, dan kontrol jarak jauh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
